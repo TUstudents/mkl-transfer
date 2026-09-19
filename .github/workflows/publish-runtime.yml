@@ -1,0 +1,59 @@
+name: Publish persistent block2 runtime
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - runtime.env
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download and verify pinned wheels
+        shell: bash
+        run: |
+          set -euo pipefail
+          source runtime.env
+          mkdir -p runtime
+          curl --fail --location --retry 5 --retry-delay 2 --retry-all-errors "$MKL_URL" -o "runtime/$MKL_WHEEL"
+          curl --fail --location --retry 5 --retry-delay 2 --retry-all-errors "$BLOCK2_URL" -o "runtime/$BLOCK2_WHEEL"
+
+          printf '%s  %s\n' "$MKL_SHA256" "$MKL_WHEEL" > runtime/SHA256SUMS.txt
+          printf '%s  %s\n' "$BLOCK2_SHA256" "$BLOCK2_WHEEL" >> runtime/SHA256SUMS.txt
+          (
+            cd runtime
+            sha256sum -c SHA256SUMS.txt
+          )
+
+          cat > runtime/RELEASE_NOTES.md <<EOF
+          Persistent block2 runtime for fresh ChatGPT containers.
+
+          * block2: $BLOCK2_VERSION (CPython 3.13, Linux x86_64)
+          * MKL: $MKL_VERSION (.so.2 ABI)
+          * Checksums: SHA256SUMS.txt
+
+          Source pins and URLs are stored in runtime.env in this repository.
+          EOF
+
+      - name: Create or update durable GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          source runtime.env
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release edit "$RELEASE_TAG"               --repo "$GITHUB_REPOSITORY"               --title "Persistent block2 runtime v1"               --notes-file runtime/RELEASE_NOTES.md
+          else
+            gh release create "$RELEASE_TAG"               --repo "$GITHUB_REPOSITORY"               --title "Persistent block2 runtime v1"               --notes-file runtime/RELEASE_NOTES.md
+          fi
+
+          gh release upload "$RELEASE_TAG"             "runtime/$MKL_WHEEL"             "runtime/$BLOCK2_WHEEL"             runtime/SHA256SUMS.txt             --repo "$GITHUB_REPOSITORY"             --clobber

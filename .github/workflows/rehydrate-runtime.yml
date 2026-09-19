@@ -1,0 +1,41 @@
+name: Rehydrate block2 runtime artifact
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - rehydrate-trigger
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  rehydrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download persistent release assets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          source runtime.env
+          mkdir -p wheelhouse
+          gh release download "$RELEASE_TAG"             --repo "$GITHUB_REPOSITORY"             --dir wheelhouse             --pattern "$MKL_WHEEL"             --pattern "$BLOCK2_WHEEL"             --pattern "SHA256SUMS.txt"
+          (
+            cd wheelhouse
+            sha256sum -c SHA256SUMS.txt
+          )
+
+      - name: Upload connector-friendly artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: block2-runtime-wheelhouse
+          path: wheelhouse/
+          compression-level: 0
+          retention-days: 7
+          if-no-files-found: error
