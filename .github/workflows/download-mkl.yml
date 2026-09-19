@@ -14,22 +14,24 @@ jobs:
     timeout-minutes: 20
 
     steps:
-      - name: Download MKL wheel
+      - name: Download MKL 2024.2.2 wheel
         shell: bash
         run: |
           set -euo pipefail
-          url="https://files.pythonhosted.org/packages/61/da/4921e17b1f455f7fed30d5cc0964f3289eee6a6cb03cdf7d5e20c14bd025/mkl-2026.1.0-py2.py3-none-manylinux_2_28_x86_64.whl"
-          out="mkl-2026.1.0-py2.py3-none-manylinux_2_28_x86_64.whl"
+          url="https://files.pythonhosted.org/packages/b8/78/8e11186efdf608fee944196abd078bedd89db9460ec3370c9b260db3a231/mkl-2024.2.2-py2.py3-none-manylinux1_x86_64.whl"
+          out="mkl-2024.2.2-py2.py3-none-manylinux1_x86_64.whl"
+          expected="915e81274ac20964e60156ed940e0eeb29dab0c282b915ad2e231db0021b980d"
           curl --fail --location --retry 5 --retry-delay 2 --retry-all-errors "$url" --output "$out"
+          echo "$expected  $out" | sha256sum -c -
           sha256sum "$out" | tee SHA256SUMS.txt
           ls -lh "$out" SHA256SUMS.txt
 
       - name: Upload MKL wheel
         uses: actions/upload-artifact@v4
         with:
-          name: mkl-wheel-2026.1.0
+          name: mkl-wheel-2024.2.2
           path: |
-            mkl-2026.1.0-py2.py3-none-manylinux_2_28_x86_64.whl
+            mkl-2024.2.2-py2.py3-none-manylinux1_x86_64.whl
             SHA256SUMS.txt
           compression-level: 0
           retention-days: 7
